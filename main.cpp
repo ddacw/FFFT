@@ -4,12 +4,16 @@
 #include <vector>
 
 typedef std::complex<double> cmplx;
+typedef std::vector<cmplx> jarray;
+const size_t DATA_SIZE = 1 << 18;
+
+// 1-thread FFT
 
 int CeilBit(int n) {
   int pow2 = 1, count = 0;
   while (pow2 < n) {
     pow2 <<= 1;
-    count ++;
+    count++;
   }
   return count;
 }
@@ -28,10 +32,10 @@ int RevBit(int mask, int count) {
   return mask;
 }
 
-void RefFFT(std::vector<cmplx>& X, bool invert) {
+void RefFFT(jarray& X, bool invert) {
   if (X.size() == 1) {
     return;
-  } 
+  }
 
   int n_bit = CeilBit(X.size());
   int n = (1 << n_bit);
@@ -46,14 +50,16 @@ void RefFFT(std::vector<cmplx>& X, bool invert) {
     }
   }
 
-  std::vector<cmplx> next(n);
+  jarray next(n);
   for (int step = 1; step < n; step <<= 1) {
     double angle = M_PI / step;
     if (invert) {
       angle = -angle;
     }
-    cmplx w(1), wn(cos(angle), sin(angle));
-    std::vector<cmplx> W;
+
+    cmplx w(1);
+    cmplx wn = exp(cmplx(0, -1) * angle);
+    jarray W;
     for (int i = 0; i < step; ++i) {
       W.push_back(w);
       w *= wn;
@@ -63,11 +69,11 @@ void RefFFT(std::vector<cmplx>& X, bool invert) {
     int start_odd = start_even + step;
 
     while (start_even < n) {
-      for(int i = 0; i < step; ++i) {
+      for (int i = 0; i < step; ++i) {
         next[start_even + i] = X[start_even + i] + W[i] * X[start_odd + i];
-        next[start_odd + i]  = X[start_even + i] - W[i] * X[start_odd + i];
+        next[start_odd + i] = X[start_even + i] - W[i] * X[start_odd + i];
       }
-      start_even += 2*step;
+      start_even += 2 * step;
       start_odd = start_even + step;
     }
     for (int i = 0; i < n; ++i) {
@@ -75,23 +81,56 @@ void RefFFT(std::vector<cmplx>& X, bool invert) {
     }
   }
   if (invert) {
-    for(int i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
       X[i] /= n;
     }
   }
 }
 
+// Returns the shortened & transformed data.
+jarray Compress(const jarray& original, size_t new_size) {
+  jarray compressed(original);
+  RefFFT(compressed, 0);
+  compressed.resize(new_size);
+  return compressed;
+}
+
+jarray Uncompress(const jarray& compressed, size_t original_size) {
+  jarray recovered(original_size, cmplx(0, 0));
+  for (size_t i = 0; i < compressed.size(); ++i) {
+    recovered[i] = compressed[i];
+  }
+  RefFFT(recovered, 1);
+  return recovered;
+}
+
+// Computes the mean square error.
+double MSE(const jarray& original, const jarray& recovered) {
+  size_t n = original.size();
+  if (recovered.size() != n) {
+    return -1;
+  }
+  cmplx mse = 0.;
+  for (size_t i = 0; i < n; ++i) {
+    cmplx diff = original[i] - recovered[i];
+    mse += (diff * diff);
+  }
+  return mse.real() / double(n);
+}
+
 int main(int argc, char* argv[]) {
-  std::vector<cmplx> X;
+  jarray X;
 
-  for(int i = 0; i < 8; ++i) {
-    X.emplace_back(double(i));
+  for (int i = 0; i < 128; ++i) {
+    X.emplace_back(double(i % 4));
+  }
+  for (int csize = 1; csize <= 128; csize <<= 1) {
+    std::cout << "Compressed size = "
+              << csize
+              << "; Error = "
+              << MSE(X, Uncompress(Compress(X, csize), 128))
+              << std::endl;
   }
 
-  RefFFT(X, 0);
-  // RefFFT(X, 1);
-  for(int i = 0; i < 8; ++i) {
-    std::cout << X[i] << ' ';
-  }
   std::cout << std::endl;
 }
