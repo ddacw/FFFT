@@ -1,19 +1,13 @@
 #include "main.h"
 #include "refft.h"
+#include "pfft.h"
 
 int main(int argc, char* argv[]) {
   jarray X;
-
-  for (int i = 0; i < 128; ++i) {
+  size_t n_threads = 2;
+  for (int i = 0; i < 64; ++i) {
     X.emplace_back(double(i % 4));
   }
-  for (int csize = 1; csize <= 128; csize <<= 1) {
-    std::cout << "Compressed size = "
-              << csize
-              << "; Error = "
-              << MSE(X, Uncompress(Compress(X, csize), 128))
-              << std::endl;
-  }
-
-  std::cout << std::endl;
+  PFFT pfft(X, n_threads);
+  pfft.Print();
 }
