@@ -1,7 +1,7 @@
 CXX = g++
-CFLAGS = -pthread -std=c++17 -Wall
+CFLAGS = -pthread -ltbb -std=c++17 -Wall
 
-SOURCES = main.cpp 
+SOURCES = main.cpp pfft.h refft.h main.h
 
 main: main.cpp
 	$(CXX) $(CFLAGS) -o main main.cpp
