@@ -1,14 +1,13 @@
 #pragma once
 
+#include <cassert>
 #include <cmath>
-#include "cassert"
-#include "main.h"
-#include "refft.h"
+
+#include "utils.h"
 
 class GeneralizedFFT {
  public:
-  GeneralizedFFT(const jarray& data, size_t p)
-      : p(p) {
+  GeneralizedFFT(const jarray& data, size_t p) : p(p) {
     for (cmplx x : data) {
       this->data.push_back(x);
     }
@@ -104,16 +103,14 @@ void GeneralizedFFT::Print() {
     }
     std::cerr << data[i] << ' ';
   }
-  std::cerr << std::endl
-            << "data0:";
+  std::cerr << std::endl << "data0:";
   for (size_t i = 0; i < n; ++i) {
     if (i % 10 == 0) {
       std::cerr << std::endl;
     }
     std::cerr << data0[i] << ' ';
   }
-  std::cerr << std::endl
-            << "N:";
+  std::cerr << std::endl << "N:";
   for (auto x : N) {
     std::cerr << x << ' ';
   }

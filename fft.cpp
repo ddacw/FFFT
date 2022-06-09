@@ -1,13 +1,9 @@
-#pragma once
+#include "fft.h"
 
-#include <algorithm>
-#include <execution>
-#include "main.h"
-
-namespace RefFFT {
+namespace FFT {
 
 // ----------------- SINGLE-THREAD ------------------ //
-void FFT(jarray& X, bool invert) {
+void FFTSeq(jarray& X, bool invert) {
   if (X.size() == 1) {
     return;
   }
@@ -86,12 +82,9 @@ void RevBitParallel(jarray& X, size_t num_threads, int n_bit) {
   }
 }
 
-void TwiddleThread(const jarray& X,
-                   const jarray& W,
-                   jarray& next,
-                   int begin,
-                   int step2_per_thread,
-                   int step) {
+void TwiddleThread(const jarray& X, const jarray& W, jarray& next, int begin,
+                   int step2_per_thread, int step) {
+  std::cerr << begin << ' ';
   int start_even = begin;
   int start_odd = start_even + step;
   for (int iter = 0; iter < step2_per_thread; ++iter) {
@@ -113,6 +106,7 @@ void TwiddleParallel(jarray& X, const jarray& W, int step, size_t num_threads) {
     num_threads /= 2;
   }
 
+  std::cerr << num_threads << std::endl;
   jarray next(n);
   int begin = 0;
   // int start_odd = start_even + step;
@@ -179,6 +173,8 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
   }
 
   if (invert) {
+    // std::transform(std::execution::par, X.begin(), X.end(), X.begin(),
+    //                [=](cmplx x) -> cmplx { return x / double(n); });
     for (int i = 0; i < n; ++i) {
       X[i] /= n;
     }
@@ -190,7 +186,7 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
 // Returns the shortened & transformed data.
 jarray Compress(const jarray& original, size_t new_size) {
   jarray compressed(original);
-  FFT(compressed, 0);
+  FFTSeq(compressed, 0);
   compressed.resize(new_size);
   return compressed;
 }
@@ -200,7 +196,7 @@ jarray Uncompress(const jarray& compressed, size_t original_size) {
   for (size_t i = 0; i < compressed.size(); ++i) {
     recovered[i] = compressed[i];
   }
-  FFT(recovered, 1);
+  FFTSeq(recovered, 1);
   return recovered;
 }
-}  // namespace RefFFT
+}  // namespace FFT

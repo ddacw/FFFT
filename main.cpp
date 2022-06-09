@@ -1,20 +1,21 @@
 #include "main.h"
-#include "pfft.h"
-#include "refft.h"
+
+// #include "gfft.h"
+// #include "utils.h"
 
 int main(int argc, char* argv[]) {
   jarray X;
-  size_t num_threads = 16;
-  for (int i = 0; i < (1<<24); ++i) {
-    X.emplace_back(double(i%8));
+  size_t num_threads = 2;
+  for (int i = 0; i < (1 << 24); ++i) {
+    X.emplace_back(double(i % 8));
   }
-  RefFFT::FFTParallel(X, 0, num_threads);
+  FFT::FFTParallel(X, 0, num_threads);
 
   for (int i = 0; i < 10; ++i) {
     std::cout << X[i] << ' ';
   }
   std::cout << std::endl;
-  RefFFT::FFTParallel(X, 1, num_threads);
+  FFT::FFTParallel(X, 1, num_threads);
   for (int i = 0; i < 10; ++i) {
     std::cout << X[i] << ' ';
   }
