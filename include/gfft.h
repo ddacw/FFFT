@@ -7,22 +7,9 @@
 
 class GeneralizedFFT {
  public:
-  GeneralizedFFT(const jarray& data, size_t p) : p(p) {
-    for (cmplx x : data) {
-      this->data.push_back(x);
-    }
-    // padding the array
-    int n_bit = CeilBit(this->data.size());
-    n = (1 << n_bit);
-    while (this->data.size() < n) {
-      this->data.emplace_back(0);
-    }
+  GeneralizedFFT(const jarray& data, size_t p);
 
-    InitN();
-    IndexReverse();
-  }
-
-  void Transform();
+  void Transform(int stage);
   void Compress();
   void IndexReverseAux(std::vector<size_t>& indices);
   void IndexReverse();
@@ -30,23 +17,9 @@ class GeneralizedFFT {
   void InitN();
   void Print();
 
-  size_t GetIndex(const std::vector<size_t>& indices) {
-    assert(indices.size() == p);
-    size_t index = 0;
-    for (size_t i = 0; i < p; ++i) {
-      index = index * N[i] + indices[i];
-    }
-    return index;
-  }
+  size_t GetIndex(const std::vector<size_t>& indices);
 
-  size_t GetRevIndex(const std::vector<size_t>& indices) {
-    assert(indices.size() == p);
-    size_t index = 0;
-    for (int i = p - 1; i >= 0; --i) {
-      index = index * N[i] + indices[i];
-    }
-    return index;
-  }
+  size_t GetRevIndex(const std::vector<size_t>& indices);
 
   static cmplx GetW(int N) {
     double angle = M_PI / double(N);
@@ -63,6 +36,21 @@ class GeneralizedFFT {
   jarray Xp;
 };
 
+GeneralizedFFT::GeneralizedFFT(const jarray& data, size_t p) : p(p) {
+  for (cmplx x : data) {
+    this->data.push_back(x);
+  }
+  // padding the array
+  int n_bit = CeilBit(this->data.size());
+  n = (1 << n_bit);
+  while (this->data.size() < n) {
+    this->data.emplace_back(0);
+  }
+
+  InitN();
+  IndexReverse();
+}
+
 void GeneralizedFFT::InitN() {  // TODO: redo
   int root = std::round(std::pow(double(n), 1. / double(p)));
   size_t cur = 1;
@@ -73,6 +61,24 @@ void GeneralizedFFT::InitN() {  // TODO: redo
   if (cur < n) {
     N.push_back(n / cur);
   }
+}
+
+size_t GeneralizedFFT::GetIndex(const std::vector<size_t>& indices) {
+  // assert(indices.size() == p);
+  size_t index = 0;
+  for (size_t i = 0; i < p; ++i) {
+    index = index * N[i] + indices[i];
+  }
+  return index;
+}
+
+size_t GeneralizedFFT::GetRevIndex(const std::vector<size_t>& indices) {
+  assert(indices.size() == p);
+  size_t index = 0;
+  for (int i = p - 1; i >= 0; --i) {
+    index = index * N[i] + indices[i];
+  }
+  return index;
 }
 
 void GeneralizedFFT::IndexReverseAux(std::vector<size_t>& indices) {
