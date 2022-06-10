@@ -4,7 +4,7 @@
 #include <execution>
 #include <thread>
 
-#include "utils.h"
+#include "util.h"
 
 namespace FFT {
 

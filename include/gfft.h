@@ -3,7 +3,7 @@
 #include <cassert>
 #include <cmath>
 
-#include "utils.h"
+#include "util.h"
 
 class GeneralizedFFT {
  public:
