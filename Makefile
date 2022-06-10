@@ -1,8 +1,11 @@
 CXX = g++
 CFLAGS = -Iinclude -pthread -ltbb -std=c++17 -Wall
 
-SOURCES = main.cpp src/fft.cpp src/util.cpp
+SOURCES = main.cpp test.cpp src/fft.cpp src/util.cpp
 OBJECTS = util.o fft.o 
+
+test: test.cpp $(OBJECTS)
+	$(CXX) $(CFLAGS) -o test $(OBJECTS) test.cpp
 
 main: main.cpp $(OBJECTS)
 	$(CXX) $(CFLAGS) -o main $(OBJECTS) main.cpp
@@ -15,4 +18,5 @@ util.o: src/util.cpp
 
 clean:
 	rm -f *.o
-	rm -f main
+	rm -f main test
+	rm -f fft_*.txt

@@ -2,7 +2,39 @@
 
 namespace FFT {
 
-// ----------------- SINGLE-THREAD ------------------ //
+// ----------------- RECURSIVE ---------------------- //
+
+void FFTRecAux(jarray& X) {
+  int n = X.size();
+  if (n == 1) {
+    return;
+  }
+  jarray odd(n / 2), even(n / 2);
+  for (int i = 0, j = 0; i < n; i += 2, ++j) {
+    even[j] = X[i];
+    odd[j] = X[i + 1];
+  }
+  FFTRecAux(even);
+  FFTRecAux(odd);
+
+  double angle = 2. * M_PI / n;
+  cmplx w(1.), wn(cos(angle), sin(angle));
+
+  int half = n / 2;
+
+  for (int i = 0; i < half; ++i) {
+    X[i] = even[i] + w * odd[i];
+    X[i + half] = even[i] - w * odd[i];
+    w *= wn;
+  }
+}
+
+void FFTRec(jarray& X) {
+  PadZero(X);
+  FFTRecAux(X);
+}
+
+// ----------------- ITERATIVE ------------------ //
 void FFTSeq(jarray& X, bool invert) {
   if (X.size() == 1) {
     return;
@@ -20,13 +52,13 @@ void FFTSeq(jarray& X, bool invert) {
 
   jarray next(n);
   for (int step = 1; step < n; step <<= 1) {
-    double angle = M_PI / step;
+    double angle = M_PI / step;  // 2*PI / (2*step)
     if (invert) {
       angle = -angle;
     }
 
-    cmplx w(1);
-    cmplx wn = exp(cmplx(0, -1) * angle);
+    cmplx w(1.), wn(cos(angle), sin(angle));
+
     jarray W;
     for (int i = 0; i < step; ++i) {
       W.push_back(w);
@@ -121,7 +153,7 @@ void TwiddleParallel(jarray& X, const jarray& W, int step, size_t num_threads) {
   for (size_t i = 0; i < num_threads - 1; ++i) {
     workers[i].join();
   }
-  std::copy(std::execution::par, next.begin(), next.end(), X.begin());
+  std::copy(std::execution::par_unseq, next.begin(), next.end(), X.begin());
   // for (int i = 0; i < n; ++i) {
   //   X[i] = next[i];
   // }
@@ -147,7 +179,7 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
     }
 
     cmplx w(1);
-    cmplx wn = exp(cmplx(0, -1) * angle);
+    cmplx wn = exp(cmplx(0, 1) * angle);
     jarray W;
     for (int i = 0; i < step; ++i) {
       W.push_back(w);
@@ -155,29 +187,14 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
     }
 
     TwiddleParallel(X, W, step, num_threads);
-
-    // int start_even = 0;
-    // int start_odd = start_even + step;
-
-    // while (start_even < n) {
-    //   for (int i = 0; i < step; ++i) {
-    //     next[start_even + i] = X[start_even + i] + W[i] * X[start_odd + i];
-    //     next[start_odd + i] = X[start_even + i] - W[i] * X[start_odd + i];
-    //   }
-    //   start_even += 2 * step;
-    //   start_odd = start_even + step;
-    // }
-    // for (int i = 0; i < n; ++i) {
-    //   X[i] = next[i];
-    // }
   }
 
   if (invert) {
-    // std::transform(std::execution::par, X.begin(), X.end(), X.begin(),
-    //                [=](cmplx x) -> cmplx { return x / double(n); });
-    for (int i = 0; i < n; ++i) {
-      X[i] /= n;
-    }
+    std::transform(std::execution::par_unseq, X.begin(), X.end(), X.begin(),
+                   [=](cmplx x) -> cmplx { return x / double(n); });
+    // for (int i = 0; i < n; ++i) {
+    //   X[i] /= n;
+    // }
   }
 }
 
