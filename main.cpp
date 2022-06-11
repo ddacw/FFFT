@@ -1,24 +1,27 @@
-#include "fft.h"
+#include <iostream>
 
-// #include "gfft.h"
+#include "fft.h"
+#include "mfft.h"
 // #include "util.h"
 
 int main(int argc, char* argv[]) {
   jarray X;
   size_t num_threads = 2;
-  for (int i = 0; i < (1 << 24); ++i) {
+  for (int i = 0; i < 64; ++i) {
     X.emplace_back(double(i % 8));
+    // std::cerr << X.back() << ' ';
   }
-  FFT::FFTParallel(X, 0, num_threads);
+  std::cerr << std::endl;
 
-  for (int i = 0; i < 10; ++i) {
-    std::cout << X[i] << ' ';
-  }
+  jarray XP(X);
+
+  MFFT mfft(X, 3);
+  mfft.Transform();
+
+  FFT::FFTSeq(XP, 0);
+
   std::cout << std::endl;
-  FFT::FFTParallel(X, 1, num_threads);
-  for (int i = 0; i < 10; ++i) {
-    std::cout << X[i] << ' ';
+  for (int i = 0; i < 64; ++i) {
+    std::cout << mfft.X[i] << ' ' << XP[i] << std::endl;
   }
-  // GeneralizedFFT pfft(X, n_threads);
-  // pfft.Print();
 }
