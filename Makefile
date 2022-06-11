@@ -1,14 +1,17 @@
 CXX = g++
 CFLAGS = -Iinclude -pthread -ltbb -std=c++17 -Wall
 
-SOURCES = main.cpp test.cpp src/fft.cpp src/util.cpp
-OBJECTS = util.o fft.o 
+SOURCES = main.cpp test.cpp src/mfft.cpp src/fft.cpp src/util.cpp
+OBJECTS = mfft.o fft.o util.o
+
+main: main.cpp $(OBJECTS)
+	$(CXX) $(CFLAGS) -o main $(OBJECTS) main.cpp
 
 test: test.cpp $(OBJECTS)
 	$(CXX) $(CFLAGS) -o test $(OBJECTS) test.cpp
 
-main: main.cpp $(OBJECTS)
-	$(CXX) $(CFLAGS) -o main $(OBJECTS) main.cpp
+mfft.o: src/mfft.cpp
+	$(CXX) -c $(CFLAGS) -o mfft.o src/mfft.cpp
 
 fft.o: src/fft.cpp
 	$(CXX) -c $(CFLAGS) -o fft.o src/fft.cpp

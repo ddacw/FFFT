@@ -28,3 +28,6 @@ $$g_j = [k_j,...,k_1] = k_1 + ... + N_1 * ... * N_{j-1} * k_j$$
 
 Recursively, $f_j = n_j * f_{j-1}$ and $g_j = g_{j-1} + L_{j-1}k_j$.
 
+$$
+X_j[k_j][...][k_1][n_p][...][n_{j+1}] = \sum_{n_j = 0}^{N_j-1} X_{j-1}[k_{j-1}][...][k_1][n_p][...][n_{j}] \omega_{L_j}^{n_j g_{j-1}} \omega_{N_j}^{n_j k_j }
+$$

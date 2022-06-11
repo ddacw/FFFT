@@ -17,8 +17,8 @@ void FFTRecAux(jarray& X) {
   FFTRecAux(even);
   FFTRecAux(odd);
 
-  double angle = 2. * M_PI / n;
-  cmplx w(1.), wn(cos(angle), sin(angle));
+  cmplx wn = GetW(n);
+  cmplx w(1.);
 
   int half = n / 2;
 

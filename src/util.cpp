@@ -1,5 +1,11 @@
 #include "util.h"
 
+cmplx GetW(int N) {
+  double angle = 2. * M_PI / double(N);
+  return exp(cmplx(0, -1) * angle);
+  // return cmplx(cos(angle), sin(angle));
+}
+
 int CeilBit(int n) {
   int pow2 = 1, count = 0;
   while (pow2 < n) {

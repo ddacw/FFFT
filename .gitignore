@@ -1,3 +1,4 @@
 .vscode
 main
 data/weatherHistory.csv
+*.o

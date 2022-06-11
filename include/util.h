@@ -9,6 +9,8 @@ typedef std::complex<double> cmplx;
 typedef std::vector<cmplx> jarray;
 const size_t DATA_SIZE = 1 << 18;
 
+cmplx GetW(int N);
+
 int CeilBit(int n);
 
 int GetBit(int mask, int n);
