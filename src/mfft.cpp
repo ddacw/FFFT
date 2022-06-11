@@ -4,9 +4,9 @@ namespace MFFT {
 
 typedef std::vector<size_t> dims;
 
-void Fourier(jarray& x, const jarray& twiddle, int start, int N) {
+void Fourier(jarray& x, bool invert, const jarray& twiddle, int start, int N) {
   jarray next(N, 0.);
-  cmplx wn = GetW(N);
+  cmplx wn = GetW(N, invert);
   cmplx w(1.);
   cmplx w_twd = twiddle[start];
   for (int k = 0; k < N; ++k) {
@@ -62,7 +62,7 @@ void ReverseIndex(jarray& X, jarray& next, const dims& N) {
   }
 }
 
-void Transform(jarray& X, size_t num_threads) {
+void Transform(jarray& X, bool invert, size_t num_threads) {
   int n_bit = PadZero(X);
   int n = (1 << n_bit);
   dims N;
@@ -85,7 +85,7 @@ void Transform(jarray& X, size_t num_threads) {
 
     // twiddle
     jarray twiddle(n);
-    cmplx wn = GetW(Lj);
+    cmplx wn = GetW(Lj, invert);
     cmplx w(1.);
 
     for (int k = 0; k < Lprev; ++k) {
@@ -97,7 +97,7 @@ void Transform(jarray& X, size_t num_threads) {
 
     // transform
     for (int start = 0; start < n; start += Nj) {
-      Fourier(X, twiddle, start, Nj);
+      Fourier(X, invert, twiddle, start, Nj);
     }
 
     // shift
@@ -110,6 +110,11 @@ void Transform(jarray& X, size_t num_threads) {
       }
     }
     X = next;
+  }
+  if (invert) {
+    for (int i = 0; i < n; ++i) {
+      X[i] /= n;
+    }
   }
 }
 

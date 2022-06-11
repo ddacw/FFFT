@@ -9,6 +9,6 @@
 
 namespace MFFT {
 
-void Transform(jarray& X, size_t num_threads);
+void Transform(jarray& X, bool invert, size_t num_threads);
 
 }

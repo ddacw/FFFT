@@ -17,7 +17,7 @@ void FFTRecAux(jarray& X) {
   FFTRecAux(even);
   FFTRecAux(odd);
 
-  cmplx wn = GetW(n);
+  cmplx wn = GetW(n, false);
   cmplx w(1.);
 
   int half = n / 2;
@@ -52,12 +52,8 @@ void FFTSeq(jarray& X, bool invert) {
 
   jarray next(n);
   for (int step = 1; step < n; step <<= 1) {
-    double angle = M_PI / step;  // 2*PI / (2*step)
-    if (invert) {
-      angle = -angle;
-    }
-
-    cmplx w(1.), wn(cos(angle), sin(angle));
+    cmplx w(1.);
+    cmplx wn = GetW(2 * step, invert);
 
     jarray W;
     for (int i = 0; i < step; ++i) {
@@ -173,13 +169,9 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
 
   jarray next(n);
   for (int step = 1; step < n; step <<= 1) {
-    double angle = M_PI / step;
-    if (invert) {
-      angle = -angle;
-    }
+    cmplx w(1.);
+    cmplx wn = GetW(2 * step, invert);
 
-    cmplx w(1);
-    cmplx wn = exp(cmplx(0, 1) * angle);
     jarray W;
     for (int i = 0; i < step; ++i) {
       W.push_back(w);

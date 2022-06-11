@@ -1,7 +1,10 @@
 #include "util.h"
 
-cmplx GetW(int N) {
+cmplx GetW(int N, bool invert) {
   double angle = 2. * M_PI / double(N);
+  if (invert) {
+    angle = -angle;
+  }
   return exp(cmplx(0, -1) * angle);
   // return cmplx(cos(angle), sin(angle));
 }
