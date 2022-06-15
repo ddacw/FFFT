@@ -2,8 +2,6 @@
 
 namespace MFFT {
 
-typedef std::vector<size_t> dims;
-
 void Fourier(jarray& x, bool invert, const jarray& twiddle, int start, int N) {
   jarray next(N, 0.);
   cmplx wn = GetW(N, invert);
@@ -50,33 +48,30 @@ dims GetIndices(int index, const dims& N) {
   return indices;
 }
 
-void ReverseIndex(jarray& X, jarray& next, const dims& N) {
-  for (size_t i = 0; i < X.size(); ++i) {
-    dims indices = GetIndices(i, N);
+void ReverseIndex(Array& arr, int start, int end) {
+  for (size_t i = start; i < end; ++i) {
+    dims indices = GetIndices(i, arr.N);
     int ri = 0;
-    for (size_t j = 0; j < N.size(); ++j) {
-      ri *= N[j];
+    for (size_t j = 0; j < arr.N.size(); ++j) {
+      ri *= arr.N[j];
       ri += indices[j];
     }
-    next[ri] = X[i];
+    arr.next[ri] = arr.X[i];
   }
 }
 
-void Transform(jarray& X, bool invert, size_t num_threads) {
-  int n_bit = PadZero(X);
-  int n = (1 << n_bit);
-  dims N;
-  if (!InitN(N, n, num_threads)) {
-    std::cerr << "Invalid sizes." << std::endl;
-    return;
-  }
+void Transform(jarray& X_orig, bool invert, size_t num_threads) {
+  Array arr(X_orig, num_threads, invert, true);
 
-  jarray next(n);
-  ReverseIndex(X, next, N);
-  X = next;
-
+  const dims& N = arr.N;
+  jarray& X = arr.X;
+  jarray& next = arr.next;
+  int n = arr.n;
   int Lj = 1;
   int Lprev;
+
+  Parallelize(ReverseIndex, arr);
+  arr.update();
 
   for (size_t jn = 0; jn < N.size(); ++jn) {
     int Nj = N[jn];
@@ -109,13 +104,14 @@ void Transform(jarray& X, bool invert, size_t num_threads) {
         next[k * (n / Lj) + i] = X[k1 * (n / Lprev) + i * Nj + kj];
       }
     }
-    X = next;
+    arr.update();
   }
   if (invert) {
     for (int i = 0; i < n; ++i) {
       X[i] /= n;
     }
   }
+  X_orig = X;
 }
 
 }  // namespace MFFT
