@@ -21,24 +21,6 @@ void Fourier(jarray& x, bool invert, const jarray& twiddle, int start, int N) {
   }
 }
 
-bool InitN(dims& N, size_t n, size_t num_threads) {  // TODO: redo
-  int root = std::round(std::pow(double(n), 1. / double(num_threads)));
-  size_t cur = 1;
-  while (cur * root <= n) {
-    N.push_back(root);
-    cur *= root;
-  }
-  if (cur < n) {
-    N.push_back(n / cur);
-  }
-
-  size_t n_check = 1;
-  for (size_t x : N) {
-    n_check *= x;
-  }
-  return n == n_check;
-}
-
 dims GetIndices(int index, const dims& N) {
   dims indices;
   for (int i = N.size() - 1; i >= 0; --i) {
@@ -48,15 +30,34 @@ dims GetIndices(int index, const dims& N) {
   return indices;
 }
 
-void ReverseIndex(Array& arr, int start, int end) {
-  for (size_t i = start; i < end; ++i) {
+void ReverseIndex(Array& arr, int start, int end, int inc) {
+  for (int i = start; i < end; i += inc) {
     dims indices = GetIndices(i, arr.N);
     int ri = 0;
     for (size_t j = 0; j < arr.N.size(); ++j) {
       ri *= arr.N[j];
       ri += indices[j];
     }
-    arr.next[ri] = arr.X[i];
+    if (i < ri) {
+      std::swap(arr.X[i], arr.X[ri]);
+    }
+  }
+}
+
+void SeqTransform(Array& arr, int start, int end, int Nj) {
+  for (int i = start; i < end; i += Nj) {
+    Fourier(arr.X, arr.invert, arr.twiddle, i, Nj);
+  }
+}
+
+void Transpose(Array& arr, int startk, int endk, int starti, int endi) {
+  for (int k = startk; k < endk; ++k) {
+    for (int i = starti; i < endi; ++i) {
+      int kj = k / arr.Lprev;
+      int k1 = k % arr.Lprev;
+      arr.next[k * (arr.n / arr.Lj) + i] =
+          arr.X[k1 * (arr.n / arr.Lprev) + i * arr.Nj + kj];
+    }
   }
 }
 
@@ -66,20 +67,21 @@ void Transform(jarray& X_orig, bool invert, size_t num_threads) {
   const dims& N = arr.N;
   jarray& X = arr.X;
   jarray& next = arr.next;
-  int n = arr.n;
-  int Lj = 1;
-  int Lprev;
+  jarray& twiddle = arr.twiddle;
+  int& n = arr.n;
+  int& Lj = arr.Lj;
+  int& Lprev = arr.Lprev;
+  int& Nj = arr.Nj;
+  Lj = 1;
 
-  Parallelize(ReverseIndex, arr);
-  arr.update();
+  Parallelize(ReverseIndex, arr, 1);
 
   for (size_t jn = 0; jn < N.size(); ++jn) {
-    int Nj = N[jn];
+    Nj = N[jn];
     Lprev = Lj;
     Lj *= Nj;
 
     // twiddle
-    jarray twiddle(n);
     cmplx wn = GetW(Lj, invert);
     cmplx w(1.);
 
@@ -90,27 +92,20 @@ void Transform(jarray& X_orig, bool invert, size_t num_threads) {
       w *= wn;
     }
 
-    // transform
-    for (int start = 0; start < n; start += Nj) {
-      Fourier(X, invert, twiddle, start, Nj);
-    }
+    // fourier
+    Parallelize(SeqTransform, arr, Nj);
 
-    // shift
-    for (int k = 0; k < Lj; ++k) {
-      for (int i = 0; i < n / Lj; ++i) {
-        // int Lprev = Lj / Nj;
-        int kj = k / Lprev;
-        int k1 = k % Lprev;
-        next[k * (n / Lj) + i] = X[k1 * (n / Lprev) + i * Nj + kj];
-      }
-    }
+    // transpose
+    Parallelize2(Transpose, arr, Lj, n / Lj);
     arr.update();
   }
+
   if (invert) {
     for (int i = 0; i < n; ++i) {
       X[i] /= n;
     }
   }
+
   X_orig = X;
 }
 

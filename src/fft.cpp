@@ -184,9 +184,6 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
   if (invert) {
     std::transform(std::execution::par_unseq, X.begin(), X.end(), X.begin(),
                    [=](cmplx x) -> cmplx { return x / double(n); });
-    // for (int i = 0; i < n; ++i) {
-    //   X[i] /= n;
-    // }
   }
 }
 

@@ -6,7 +6,9 @@ Array::Array(jarray X, int num_threads, bool invert, bool init_dim = false)
   n = (1 << n_bit);
   twiddle = jarray(X.size());
   if (init_dim) {
-    InitN(this->N, X.size(), num_threads);
+    if (!InitN(this->N, X.size(), num_threads)) {
+      throw std::invalid_argument("Unable to factorize n by num_threads.");
+    }
   }
   next = jarray(n);
 }
@@ -15,17 +17,49 @@ void Array::update() {
   std::copy(std::execution::par_unseq, next.begin(), next.end(), X.begin());
 }
 
-void Parallelize(std::function<void(Array&, int, int)> f, Array& arr) {
+void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
+                 int inc) {
   size_t num_threads = arr.num_threads;
-  size_t block_size = arr.X.size() / num_threads;
+  size_t block_size = (arr.X.size() / inc) / num_threads;
   std::vector<std::thread> workers(num_threads - 1);
   size_t start_block = 0;
-  for (size_t i = 0; i < num_threads - 1; ++i) {
-    size_t end_block = start_block + block_size;
-    workers[i] = std::thread(f, std::ref(arr), start_block, end_block);
-    start_block = end_block;
+
+  if (block_size) {
+    for (size_t i = 0; i < num_threads - 1; ++i) {
+      size_t end_block = start_block + block_size * inc;
+      workers[i] = std::thread(f, std::ref(arr), start_block, end_block, inc);
+      start_block = end_block;
+    }
   }
-  f(arr, start_block, arr.X.size());
+  f(arr, start_block, arr.X.size(), inc);
+  for (size_t i = 0; i < num_threads - 1; ++i) {
+    workers[i].join();
+  }
+}
+
+void Parallelize2(std::function<void(Array&, int, int, int, int)> f, Array& arr,
+                  int N, int M) {
+  size_t num_threads = arr.num_threads;
+  size_t start_block = 0;
+  std::vector<std::thread> workers(num_threads - 1);
+
+  if (N > M) {
+    size_t block_size = N / num_threads;
+    for (size_t i = 0; i < num_threads - 1; ++i) {
+      size_t end_block = start_block + block_size;
+      workers[i] = std::thread(f, std::ref(arr), start_block, end_block, 0, M);
+      start_block = end_block;
+    }
+    f(arr, start_block, N, 0, M);
+  } else {
+    size_t block_size = M / num_threads;
+    for (size_t i = 0; i < num_threads - 1; ++i) {
+      size_t end_block = start_block + block_size;
+      workers[i] = std::thread(f, std::ref(arr), 0, N, start_block, end_block);
+      start_block = end_block;
+    }
+    f(arr, 0, N, start_block, M);
+  }
   for (size_t i = 0; i < num_threads - 1; ++i) {
     workers[i].join();
   }

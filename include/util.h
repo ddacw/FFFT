@@ -1,12 +1,13 @@
 #pragma once
 
 #include <complex>
+#include <exception>
+#include <execution>
 #include <functional>
 #include <iostream>
 #include <thread>
 #include <utility>
 #include <vector>
-#include <execution>
 
 typedef std::complex<double> cmplx;
 typedef std::vector<size_t> dims;
@@ -18,14 +19,19 @@ class Array {
   Array(jarray X, int num_threads, bool invert, bool init_dim);
 
   void update();
-  
+
   jarray X, next, twiddle;
   dims N;
   int n_bit, num_threads, n;
   bool invert;
+  int Lj, Lprev, Nj;
 };
 
-void Parallelize(std::function<void(Array&, int, int)> f, Array& arr);
+void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
+                 int inc);
+
+void Parallelize2(std::function<void(Array&, int, int, int, int)> f, Array& arr,
+                  int N, int M);
 
 bool InitN(dims& N, size_t n, size_t num_threads);
 
