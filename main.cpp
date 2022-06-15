@@ -5,19 +5,20 @@
 
 int main(int argc, char* argv[]) {
   jarray X;
-  for (int i = 0; i < 64; ++i) {
-    X.emplace_back(double(i % 8) + 0.1 * (i % 8));
+  for (int i = 0; i < 25; ++i) {
+    X.emplace_back(double(i) + 0.1 * (i % 8));
   }
-  std::cerr << std::endl;
+  
 
   jarray XP(X);
 
-  MFFT::Transform(X, false, 3);
-  MFFT::Transform(X, true, 3);
-  FFT::FFTSeq(XP, 0);
+  MFFT::Transform(X, false, 5);
+  // MFFT::Transform(X, true, 2);
+  // MFFT::Transform(X, true, 4);
+  FFT::FFTSlow(XP);
 
   std::cout << std::endl;
-  for (int i = 0; i < 64; ++i) {
+  for (int i = 0; i < 8; ++i) {
     std::cout << X[i] << ' ' << XP[i] << std::endl;
   }
 }

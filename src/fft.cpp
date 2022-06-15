@@ -4,6 +4,23 @@ namespace FFT {
 
 // ----------------- RECURSIVE ---------------------- //
 
+void FFTSlow(jarray& X) {
+  int N = X.size();
+  jarray next(N, 0.);
+  cmplx wn = GetW(N, 0);
+  cmplx w(1.);
+
+  for (int k = 0; k < N; ++k) {
+    cmplx w_tmp(1.);
+    for (int i = 0; i < N; ++i) {
+      next[k] += X[i] * w_tmp;
+      w_tmp *= w;
+    }
+    w *= wn;
+  }
+  X = next;
+}
+
 void FFTRecAux(jarray& X) {
   int n = X.size();
   if (n == 1) {
@@ -110,9 +127,8 @@ void RevBitParallel(jarray& X, size_t num_threads, int n_bit) {
   }
 }
 
-void TwiddleThread(const jarray& X, const jarray& W, jarray& next, int begin,
-                   int step2_per_thread, int step) {
-  std::cerr << begin << ' ';
+void TransformThread(const jarray& X, const jarray& W, jarray& next, int begin,
+                     int step2_per_thread, int step) {
   int start_even = begin;
   int start_odd = start_even + step;
   for (int iter = 0; iter < step2_per_thread; ++iter) {
@@ -125,11 +141,11 @@ void TwiddleThread(const jarray& X, const jarray& W, jarray& next, int begin,
   }
 }
 
-void TwiddleParallel(jarray& X, const jarray& W, int step, size_t num_threads) {
+void TransformParallel(jarray& X, const jarray& W, int step,
+                       size_t num_threads) {
   int n = X.size();
-  // (step | step) | (step | step )
-  // (even | odd ) | (even | odd  )
   int step2_per_thread;
+
   while ((step2_per_thread = n / (2 * step * num_threads)) == 0) {
     num_threads /= 2;
   }
@@ -137,22 +153,18 @@ void TwiddleParallel(jarray& X, const jarray& W, int step, size_t num_threads) {
   std::cerr << num_threads << std::endl;
   jarray next(n);
   int begin = 0;
-  // int start_odd = start_even + step;
 
   std::vector<std::thread> workers(num_threads - 1);
   for (size_t i = 0; i < num_threads - 1; ++i) {
-    workers[i] = std::thread(TwiddleThread, std::cref(X), std::cref(W),
+    workers[i] = std::thread(TransformThread, std::cref(X), std::cref(W),
                              std::ref(next), begin, step2_per_thread, step);
     begin += step2_per_thread * 2 * step;
   }
-  TwiddleThread(X, W, next, begin, step2_per_thread, step);
+  TransformThread(X, W, next, begin, step2_per_thread, step);
   for (size_t i = 0; i < num_threads - 1; ++i) {
     workers[i].join();
   }
   std::copy(std::execution::par_unseq, next.begin(), next.end(), X.begin());
-  // for (int i = 0; i < n; ++i) {
-  //   X[i] = next[i];
-  // }
 }
 
 void FFTParallel(jarray& X, bool invert, size_t num_threads) {
@@ -178,7 +190,7 @@ void FFTParallel(jarray& X, bool invert, size_t num_threads) {
       w *= wn;
     }
 
-    TwiddleParallel(X, W, step, num_threads);
+    TransformParallel(X, W, step, num_threads);
   }
 
   if (invert) {

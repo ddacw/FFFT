@@ -8,6 +8,8 @@
 
 namespace FFT {
 
+void FFTSlow(jarray& X);
+
 void FFTRec(jarray& X);
 
 void FFTSeq(jarray& X, bool invert);

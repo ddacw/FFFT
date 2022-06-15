@@ -4,6 +4,10 @@ CFLAGS = -Iinclude -pthread -ltbb -std=c++17 -Wall
 SOURCES = main.cpp test.cpp src/mfft.cpp src/fft.cpp src/util.cpp
 OBJECTS = mfft.o fft.o util.o
 
+.PHONY : all
+
+all : main test
+
 main: main.cpp $(OBJECTS)
 	$(CXX) $(CFLAGS) -o main $(OBJECTS) main.cpp
 

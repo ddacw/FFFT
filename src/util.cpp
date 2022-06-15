@@ -1,16 +1,21 @@
 #include "util.h"
 
-Array::Array(jarray X, int num_threads, bool invert, bool init_dim = false)
+Array::Array(jarray X, int num_threads, bool invert, bool init_dim = false,
+             bool pad_zero = true)
     : X(X), num_threads(num_threads), invert(invert) {
-  n_bit = PadZero(this->X);
-  n = (1 << n_bit);
-  twiddle = jarray(X.size());
+  if (pad_zero) {
+    n_bit = PadZero(this->X);
+  }
+  n = this->X.size();
+  twiddle = jarray(this->X.size());
   if (init_dim) {
-    if (!InitN(this->N, X.size(), num_threads)) {
+    if (!InitN(this->N, this->X.size(), num_threads)) {
       throw std::invalid_argument("Unable to factorize n by num_threads.");
     }
   }
   next = jarray(n);
+  ws = jarray(n);
+  wp = jarray(n);
 }
 
 void Array::update() {
@@ -20,7 +25,7 @@ void Array::update() {
 void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
                  int inc) {
   size_t num_threads = arr.num_threads;
-  size_t block_size = (arr.X.size() / inc) / num_threads;
+  size_t block_size = (arr.n / inc) / num_threads;
   std::vector<std::thread> workers(num_threads - 1);
   size_t start_block = 0;
 
@@ -31,9 +36,11 @@ void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
       start_block = end_block;
     }
   }
-  f(arr, start_block, arr.X.size(), inc);
-  for (size_t i = 0; i < num_threads - 1; ++i) {
-    workers[i].join();
+  f(arr, start_block, arr.n, inc);
+  if (block_size) {
+    for (size_t i = 0; i < num_threads - 1; ++i) {
+      workers[i].join();
+    }
   }
 }
 
@@ -65,15 +72,14 @@ void Parallelize2(std::function<void(Array&, int, int, int, int)> f, Array& arr,
   }
 }
 
-bool InitN(dims& N, size_t n, size_t num_threads) {  // TODO: redo
-  int root = std::round(std::pow(double(n), 1. / double(num_threads)));
-  size_t cur = 1;
-  while (cur * root <= n) {
-    N.push_back(root);
-    cur *= root;
+bool InitN(dims& N, size_t n, size_t num_threads) {
+  size_t tmp = n;
+  while (tmp / num_threads) {
+    N.push_back(num_threads);
+    tmp /= num_threads;
   }
-  if (cur < n) {
-    N.push_back(n / cur);
+  if (tmp == 2) {
+    N.push_back(2);
   }
 
   size_t n_check = 1;

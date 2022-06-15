@@ -16,15 +16,17 @@ const size_t DATA_SIZE = 1 << 18;
 
 class Array {
  public:
-  Array(jarray X, int num_threads, bool invert, bool init_dim);
+  Array(jarray X, int num_threads, bool invert, bool init_dim, bool pad_zero);
 
   void update();
 
-  jarray X, next, twiddle;
+  jarray X, next;
+  jarray twiddle, ws, wp;
   dims N;
+  cmplx wln;
   int n_bit, num_threads, n;
-  bool invert;
   int Lj, Lprev, Nj;
+  bool invert;
 };
 
 void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
