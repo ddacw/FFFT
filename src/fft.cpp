@@ -2,7 +2,7 @@
 
 namespace FFT {
 
-// Peforms the DFT by defintion in O(N^2).
+// Performs the DFT by defintion in O(N^2).
 void DFT(jarray& X, bool invert, size_t) {
   int N = X.size();
   jarray next(N, 0.);

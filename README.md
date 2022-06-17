@@ -10,7 +10,7 @@
 
 ### Structure
 
-All of the implemented FFT transform the sequence in-place.
+All of the implemented FFT transform the sequence in place.
 Main functionalities
 
 - `MFFT::Transform` computes the 1D FFT via the N-dimension DFT,
@@ -18,97 +18,91 @@ Main functionalities
 
 Extras
 
-- `FFT::DFT`: 
-- `FFT::FFTRec`
-- `FFT::FFTSeq`
+- `FFT::DFT` performs the DFT by defintion in O(N^2),
+- `FFT::FFTRec`: recursive radix-2,
+- `FFT::FFTSeq`: iterative radix-2.
 
 ## Description
 
 The DFT of a sequence $x$ can be defined as
 $$X(k) = \sum_{n = 0}^{N-1} x(n) \omega_N^{kn}$$  
-with $\omega_N = e^{-i2\pi/N}$ the root of unity. The inversion TODO.
+with $\omega_N = e^{-i2\pi/N}$ the root of unity. The inversion involves reapplying the DFT with $$.
 
 A very common FFT is the Cooley–Tukey radix-2 algorithm. The idea is to divide the sequence $x$ into two ($x_{\text{even}}$, $x_{\text{odd}}$), performs the DFT recursively on each, and construct the transformed sequence $X$ from $X_{\text{even}}$ and $X_{\text{odd}}$. The algorithm can be implemented iteratively for better performance.
 
 `FFT::FFTParallel` implements the iterative radix-2 algorithm with parallelized elements. The sequence has to be padded (with zeroes in our case) such that the size $N$ is a power of 2. In particular,
-
 - `RevBitParallel` rearrange the array based on the binary representation of each index: $x_{i_1, ..., i_n} = x^{\text{old}}_{i_n,...,i_1}$.
-- For each of the $\log_2(N)$ steps, `TransformParallel` compute the current FFT based on the result of the previous steps. Each partition $[x_{i}, x_{i+2^{S}}]$ can be processed individually on different threads.
+- For each of the $\log_2(N)$ steps, `ComputeThread` compute the current FFT based on the result of the previous steps. Each partition $[x_{i}, x_{i+2^{S}}]$ can be processed individually on different threads.
 
-### MFFT (multidimensional)
-`MFFT::Transform` implements the parallelized FFT described in [(1)](<https://doi.org/10.1016/0167-8191(90)90031-4>) and [(2)](https://doi.org/10.1109/SUPERC.1994.344263). The 1-D sequence $x$ is mapped onto P dimensions $N = N_1 \times ... \times N_p$. To compute, for instance, the DFT of a 2D $N \times M$ array, we can compute $N$ DFTs along one dimension, then $M$ DFTs of the previous result along the other. The array does not have to be padded to have a size of $2^k$, but each $N_i$ should (and in our case must) be divisible by the number of threads. You can indeed 
+### MFFT (multi-dimensional)
+`MFFT::Transform` implements the parallelized FFT described in [(1)](<https://doi.org/10.1016/0167-8191(90)90031-4>) and [(2)](https://doi.org/10.1109/SUPERC.1994.344263). The 1-D sequence $x$ is mapped onto P dimensions $N = N_1 \times ... \times N_p$. To compute, for instance, the DFT of a 2D $N \times M$ array, we can compute $N$ DFTs along one dimension, then $M$ DFTs of the previous result along the other. The array does not have to be padded to have a size of $2^k$, but each $N_i$ should (and in our case must) be divisible by the number of threads. It is possible in our code to, for instance, set `num_threads = 5` to process an array of size $5^k$ , but for simplicity, the default is to use a power of 2 with padding.
 
-This function is the main focus of the project. While the final implementation is straightforward, there are several elements that was hard to get right. To start with, we did not refer to the source code (if there's any) of both papers. In fact, since the paper described the algorithm adapted to the architecture of the time, our version does not closely follow the description. Some differences includes:
+To compute the $i^{th}$-dimensional DFT, first the array $x$ has to be transposed so that the $i^{th}$ dimension is distributed along `x[]`. This is done by transposing $x$ after each DFT computation of slices of `x[]`. Twiddle factors are needed so that the result of the $i^{th}-D$ DFT matches that of the ordinary DFT. For this, I implemented the $O(N^2)$ DFT to process segments of size $N_i$. Twiddle factors computation method was gradually improved during the project, but for now, I am not sure that this DFT can be replaced with the iterative 1D-FFT.
 
-- The memory is shared by all threads.
-- For each major step (twiddle, transform, transpose), 
-
-The 
+This function is the main focus of the project. While the final implementation is straightforward, several elements were hard to get right. To start with, I did not refer to the source code (if there is any) of both papers. Since the paper described the algorithm adapted to the architecture of the time, our version does not closely follow the description and is streamlined with `std::thread`. Nevertheless, mathematical operations (twiddle factors, transposing, etc.) are computed as described in both papers. I personally enjoyed writing the formula for calculating the indices of the transposition.
 
 ### Parallelization
-FFT involves lots of array operations (assign, numerical operations) that fortunately are not in conflict with each other. In practice, the data and auxilliary variables 
+FFT involves lots of array operations (assign, numerical operations) that fortunately are not in conflict with each other. In practice, the data and auxilliary variables can be structured to facilitate parallelization. I employed the very first technique learned in the course: splitting the array into blocks that are processed individually by threads. 
 
-**WIP** of notes
+The `Array` class store the processing array as well as supporting variables. This was realized mid-development of MFFT and was gradually adapted to the previously implemented algorithm to streamline the interface. Doing so slightly impacted the performance but greatly improves readability and practicality. 
 
-- computed the indicies btw. the most tricky part of mfft.
-- parallelized computation of $x^n$ but might actually be redundant. IT IS REDUNDANT LMAO.
-- the use of `<execution>`.
+`Parallelize(std::function<> f, Array& arr,
+                 int inc)` splits the array into blocks while also considering the increment of the `for` loop in `f` which process `arr`.
+
+`Parallelize2()` uses the same technique, but for a nested `for` loop of 2. The interface choose the loop with the largest "length" to split.
+
+For simpler operations such as copying arrays or dividing each elements by N, I experimented with `<execution>`, particularly with the execution polities `par` and `par_unseq`. However, I encountered some memory issues with `std::copy` and have removed its usage.
 
 ## Testing
 
-Testing environment: Laptop, AMD 4750u, 32GB of RAM.
+Testing environment: Personal laptop, AMD 4750u (8 cores, 16 threads), 32GB of RAM.
+
+### Correctness
+- The transformed data can vary between algorithms, either because of numerical error or of different padded sizes and thus are not automatically compared with each other, although we did manual testing to calibrate the algorithms. Instead, the FFT is followed with the Inverse FFT, and the recovered result is compared with the original data within a very small error margin.
+
+- Tests are with varying sizes that are not necessarily powers of 2, and varying numbers of threads. Arrays are of moderate sizes so that the $O(N^2)$ DFT can also be tested. The varying sizes help catches bugs such as out-of-bounds array access or mis-initialization of `Array`.
+- 
+### Speed
+FFT algorithms in N log N are fast and will process an array of size $10^6$ in less than a second (weather data won't be enough). Given the processing power, the maximum size tested was $5\times 10^7$.
+
+Evidently, the iterative FFT is faster than the recursive one (and is easier to parallelize). `FFT::FFTParallel` is also faster with more threads (until 16). For instance, the runtime is reduced by half using 4 threads on large tests compared to the single-threaded one.
+
+`MFFT::Transform` is slower than `FFT::FFTParallel` most of the time, partly because my implementation is sensitive to `num_threads` (each DFT runs at approximately $O(num thread)$). It is also more complex implementation-wise and is not exactly optimized to compete with `FFT::FFTParallel` (extremely slow with 1 thread). Still, the improved runtime when more threads (especially 8) are used is promising.
 
 
+`FFT::FFTRec`:
+|Size | 5,000|10,000|50,000|100,000|500,000|1e6|1e7|5e7|
+|:---:|---|---|---|---|---|---|---|---|
+||5,720|12,219|52,428|108,835|475,401|977,845|18,182,418|79,521,071|
+
+`FFT::FFTSeq`:
+|Size | 5,000|10,000|50,000|100,000|500,000|1e6|1e7|5e7|
+|:---:|---|---|---|---|---|---|---|---|
+|Size | 5,000|10,000|50,000|100,000|500,000|1e6|1e7|5e7|
+||3,705|8,106|40,306|80,198|365,443|769,962|14,916,680|65,636,838|
+
+`FFT::FFTParallel`:
+|num_threads / N| 5,000|10,000|50,000|100,000|500,000|1e6|1e7|5e7|
+|:---:|---|---|---|---|---|---|---|---|
+|1 |7,194|12,507|50,097|101,384|430,135|898,810|15,862,235|64,536,779|
+|2 |7,570|14,484|49,993|105,174|430,362|794,205|10,276,082|43,075,659|
+|4 |7,196|10,899|36,706|71,918|301,769|618,313|7,802,009|32,140,696|
+|8 |9,969|13,656|33,594|58,673|235,739|476,824|6,263,392|26,871,738|
+|16|15,021|19,166|37,262|60,317|213,435|426,420|6,004,054|24,228,015|
+|32|28,341|33,373|49,111|73,230|193,107|365,076|6,285,282|24,801,308|
+
+`MFFT::Transform`:
+|num_threads / N| 5,000|10,000|50,000|100,000|500,000|1e6|1e7|5e7|
+|:---:|---|---|---|---|---|---|---|---|
+|1 |36,532|77,379|329,839|700,964|3,036,914|6,251,118|108,702,607|466,899,596|
+|2 |43,342|65,665|249,764|544,445|1,791,600|3,704,867|62,543,744|268,254,384|
+|4 |14,239|23,474|112,399|236,746|834,821|1,469,157|22,148,206|92,937,463|
+|8 |13,079|19,355|69,051|127,059|469,806|818,195|12,581,343|56,490,857|
+|16|18,771|24,636|64,398|128,553|334,743|683,803|13,517,104|54,627,316|
+|32|28,891|31,611|71,933|121,123|424,933|914,447|16,689,929|76,115,464|
 
 ## Application
 
-## Extras
+## Misc
 
-Assume that $N = N_1 \times ... \times N_p$.
-
-```
-N1->NP:  x[n1][...][np] = x[np + ... + (n1)*N2*...*Np]
-
-NP->N1: x0[np][...][n1] = x[n1][...][np]
-                        = x[np + ... + (n1)*N2*...*Np]
-
-
-NP->N1: xp[kp][...][k1] = X[kp][...][k1]
-                        = X[k1 + N1*k2 + ... + N1*...*Np-1*(kp)]
-```
-
-$$x_p[k_p,...,k_1] = \sum_{n_1, ..., n_p} x_0[n_p,...,n_1] \omega_N^{f_p g_p}$$
-where
-$$f_j = [n_1,...,n_j] = n_j + ... + n_1 * N_2 * ... * N_j$$
-and
-$$g_j = [k_j,...,k_1] = k_1 + ... + N_1 * ... * N_{j-1} * k_j$$
-
-Recursively, $f_j = n_j * f_{j-1}$ and $g_j = g_{j-1} + L_{j-1}k_j$.
-
-$$
-X_j[k_j][...][k_1][n_p][...][n_{j+1}] = \sum_{n_j = 0}^{N_j-1} X_{j-1}[k_{j-1}][...][k_1][n_p][...][n_{j}] \omega_{L_j}^{n_j g_{j-1}} \omega_{N_j}^{n_j k_j }
-$$
-
-```
-Benchmark FFT::FFTRec:
- 1 thread(s):          5,876        12,169        53,761       110,177       473,985       987,936    19,185,559    79,985,081
-
-Benchmark FFT::FFTSeq:
- 1 thread(s):          3,669         8,358        38,714        79,187       365,946       777,700    15,298,724    66,768,968
-
-Benchmark FFT::FFTParallel:
- 1 thread(s):          7,090        12,727        51,596       102,063       431,429       875,527    16,399,721    66,400,844
- 2 thread(s):          6,868        12,319        49,454        97,917       410,845       875,725    10,592,994    43,867,619
- 4 thread(s):          6,931        10,962        37,279        66,916       270,927       619,316     7,587,008    31,359,079
- 8 thread(s):          7,497        10,972        31,914        59,430       224,654       456,690     6,224,218    27,583,350
-16 thread(s):         14,503        18,095        34,172        60,801       214,588       418,912     5,794,894    24,762,653
-32 thread(s):         20,216        25,326        43,795        72,407       202,037       360,616     5,856,252    25,580,457
-
-Benchmark MFFT::Transform:
- 1 thread(s):         34,472        73,671       315,031       667,066     2,969,815     6,050,454   107,953,848   465,013,701
- 2 thread(s):         24,631        58,069       235,275       632,515     1,836,301     3,566,514    61,783,226   267,046,006
- 4 thread(s):         15,079        22,989       110,238       234,732       798,842     1,423,182    22,274,169    92,561,386
- 8 thread(s):         12,122        17,223        68,021       139,285       514,793       937,963    13,050,468    55,216,706
-16 thread(s):         20,051        24,610        63,431       135,024       369,941       790,540    12,608,772    54,972,195
-32 thread(s):         23,984        25,767        70,300       121,659       438,211       932,407    17,810,395    75,619,461
-```
+I created a functional makefile and managed to separate the headers and the source code!

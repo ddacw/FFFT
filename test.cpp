@@ -85,9 +85,9 @@ void TestExecutionTime(func_fft fft, std::string fft_name, size_t max_num_thread
     std::cerr << std::setw(2) << num_threads << " thread(s): ";
     for (int N : Ns) {
       int elapsed = Benchmark(fft, N, num_threads);
-      std::cerr << std::setw(14) << elapsed;
+      std::cerr << '|' << elapsed;
     }
-    std::cerr << std::endl;
+    std::cerr << '|' << std::endl;
   }
 }
 
