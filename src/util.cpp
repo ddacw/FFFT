@@ -80,8 +80,8 @@ bool InitN(dims& N, size_t n, size_t num_threads) {
     N.push_back(num_threads);
     tmp /= num_threads;
   }
-  if (tmp == 2) {
-    N.push_back(2);
+  if (tmp > 1) {
+    N.push_back(tmp);
   }
 
   size_t n_check = 1;
