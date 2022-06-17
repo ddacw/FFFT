@@ -14,8 +14,6 @@ Array::Array(jarray X, int num_threads, bool invert, bool init_dim = false,
     }
   }
   next = jarray(n);
-  ws = jarray(n);
-  wp = jarray(n);
 }
 
 void Array::update() {
@@ -89,8 +87,8 @@ bool InitN(dims& N, size_t n, size_t num_threads) {
   return n == n_check;
 }
 
-cmplx GetW(int N, bool invert) {
-  double angle = 2. * M_PI / double(N);
+cmplx GetW(int N, bool invert, double k) {
+  double angle = k * 2. * M_PI / double(N);
   if (invert) {
     angle = -angle;
   }

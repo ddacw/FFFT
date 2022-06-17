@@ -2,26 +2,25 @@
 
 namespace FFT {
 
-// ----------------- RECURSIVE ---------------------- //
-
-void FFTSlow(jarray& X) {
+// Peforms the DFT by defintion in O(N^2).
+void DFT(jarray& X, bool invert) {
   int N = X.size();
   jarray next(N, 0.);
-  cmplx wn = GetW(N, 0);
-  cmplx w(1.);
-
   for (int k = 0; k < N; ++k) {
-    cmplx w_tmp(1.);
     for (int i = 0; i < N; ++i) {
-      next[k] += X[i] * w_tmp;
-      w_tmp *= w;
+      next[k] += X[i] * GetW(N, invert, k * i);
     }
-    w *= wn;
   }
   X = next;
+  if (invert) {
+    for (int i = 0; i < N; ++i) {
+      X[i] /= N;
+    }
+  }
 }
 
-void FFTRecAux(jarray& X) {
+// Implements the Radix-2 FFT algorihm.
+void FFTRecAux(jarray& X, bool invert) {
   int n = X.size();
   if (n == 1) {
     return;
@@ -31,10 +30,10 @@ void FFTRecAux(jarray& X) {
     even[j] = X[i];
     odd[j] = X[i + 1];
   }
-  FFTRecAux(even);
-  FFTRecAux(odd);
+  FFTRecAux(even, invert);
+  FFTRecAux(odd, invert);
 
-  cmplx wn = GetW(n, false);
+  cmplx wn = GetW(n, invert, 1);
   cmplx w(1.);
 
   int half = n / 2;
@@ -46,20 +45,28 @@ void FFTRecAux(jarray& X) {
   }
 }
 
-void FFTRec(jarray& X) {
+// Wrapper for the Radix-2 algorithm.
+void FFTRec(jarray& X, bool invert) {
   PadZero(X);
-  FFTRecAux(X);
+  FFTRecAux(X, invert);
+  if (invert) {
+    for (size_t i = 0; i < X.size(); ++i) {
+      X[i] /= X.size();
+    }
+  }
 }
 
-// ----------------- ITERATIVE ------------------ //
+// Performs FFTRec without recursion.
 void FFTSeq(jarray& X, bool invert) {
   if (X.size() == 1) {
     return;
   }
 
+  // padding
   int n_bit = PadZero(X);
   int n = (1 << n_bit);
 
+  // reverse bit
   for (int i = 0; i < n; ++i) {
     int j = RevBit(i, n_bit);
     if (i < j) {
@@ -70,8 +77,7 @@ void FFTSeq(jarray& X, bool invert) {
   jarray next(n);
   for (int step = 1; step < n; step <<= 1) {
     cmplx w(1.);
-    cmplx wn = GetW(2 * step, invert);
-
+    cmplx wn = GetW(2 * step, invert, 1);
     jarray W;
     for (int i = 0; i < step; ++i) {
       W.push_back(w);
@@ -80,7 +86,6 @@ void FFTSeq(jarray& X, bool invert) {
 
     int start_even = 0;
     int start_odd = start_even + step;
-
     while (start_even < n) {
       for (int i = 0; i < step; ++i) {
         next[start_even + i] = X[start_even + i] + W[i] * X[start_odd + i];
@@ -93,6 +98,7 @@ void FFTSeq(jarray& X, bool invert) {
       X[i] = next[i];
     }
   }
+
   if (invert) {
     for (int i = 0; i < n; ++i) {
       X[i] /= n;
@@ -100,39 +106,31 @@ void FFTSeq(jarray& X, bool invert) {
   }
 }
 
-// -------------------- PARALLEL -------------------- //
-void RevBitThread(jarray& X, size_t start, size_t end, int n_bit) {
+// FFTParallel aux function.
+// Swap X[i] with X[j], given that i and j have 'reversed' binary
+// representations.
+void RevBitThread(Array& arr, size_t start, size_t end, int inc) {
   for (size_t i = start; i < end; ++i) {
-    int j = RevBit(int(i), n_bit);
+    int j = RevBit(int(i), arr.n_bit);
     // thread-safe, since each pair is swapped only once
     if (int(i) < j) {
-      std::swap(X[i], X[j]);
+      std::swap(arr.X[i], arr.X[j]);
     }
   }
 }
 
-void RevBitParallel(jarray& X, size_t num_threads, int n_bit) {
-  size_t block_size = X.size() / num_threads;
-  std::vector<std::thread> workers(num_threads - 1);
-  size_t start_block = 0;
-  for (size_t i = 0; i < num_threads - 1; ++i) {
-    size_t end_block = start_block + block_size;
-    workers[i] =
-        std::thread(RevBitThread, std::ref(X), start_block, end_block, n_bit);
-    start_block = end_block;
-  }
-  RevBitThread(X, start_block, X.size(), n_bit);
-  for (size_t i = 0; i < num_threads - 1; ++i) {
-    workers[i].join();
-  }
-}
-
-void TransformThread(const jarray& X, const jarray& W, jarray& next, int begin,
-                     int step2_per_thread, int step) {
+// FFTParallel aux function.
+// Computes the current DFT based on the results of the last step.
+void ComputeThread(Array& arr, int begin, int end, int inc) {
+  int& step = arr.step;
   int start_even = begin;
-  int start_odd = start_even + step;
+  int start_odd = start_even + arr.step;
+  int step2_per_thread = (end - begin) / step;
+  jarray& X = arr.X;
+  jarray& next = arr.next;
+  jarray& W = arr.ws;
   for (int iter = 0; iter < step2_per_thread; ++iter) {
-    for (int i = 0; i < step; ++i) {
+    for (int i = 0; i < arr.step; i += inc) {
       next[start_even + i] = X[start_even + i] + W[i] * X[start_odd + i];
       next[start_odd + i] = X[start_even + i] - W[i] * X[start_odd + i];
     }
@@ -141,80 +139,44 @@ void TransformThread(const jarray& X, const jarray& W, jarray& next, int begin,
   }
 }
 
-void TransformParallel(jarray& X, const jarray& W, int step,
-                       size_t num_threads) {
-  int n = X.size();
-  int step2_per_thread;
-
-  while ((step2_per_thread = n / (2 * step * num_threads)) == 0) {
-    num_threads /= 2;
-  }
-
-  std::cerr << num_threads << std::endl;
-  jarray next(n);
-  int begin = 0;
-
-  std::vector<std::thread> workers(num_threads - 1);
-  for (size_t i = 0; i < num_threads - 1; ++i) {
-    workers[i] = std::thread(TransformThread, std::cref(X), std::cref(W),
-                             std::ref(next), begin, step2_per_thread, step);
-    begin += step2_per_thread * 2 * step;
-  }
-  TransformThread(X, W, next, begin, step2_per_thread, step);
-  for (size_t i = 0; i < num_threads - 1; ++i) {
-    workers[i].join();
-  }
-  std::copy(std::execution::par_unseq, next.begin(), next.end(), X.begin());
-}
-
-void FFTParallel(jarray& X, bool invert, size_t num_threads) {
-  if (X.size() == 1) {
+// Performs FFTSeq in parallel.
+void FFTParallel(jarray& X_orig, bool invert, size_t num_threads) {
+  if (X_orig.size() == 1) {
     return;
   }
+  Array arr(X_orig, num_threads, invert, false, true);
 
-  // Padding
-  int n_bit = PadZero(X);
-  int n = (1 << n_bit);
+  jarray& X = arr.X;
+  int& n = arr.n;
 
-  // Rearrange
-  RevBitParallel(X, num_threads, n_bit);
+  // Rearrange.
+  Parallelize(RevBitThread, arr, 1);
 
-  jarray next(n);
-  for (int step = 1; step < n; step <<= 1) {
-    cmplx w(1.);
-    cmplx wn = GetW(2 * step, invert);
-
-    jarray W;
+  int& step = arr.step;
+  // Log(N) steps.
+  for (step = 1; step < arr.n; step <<= 1) {
+    
+    // Precomputed roots because it might be faster.
+    arr.ws = jarray(step);
     for (int i = 0; i < step; ++i) {
-      W.push_back(w);
-      w *= wn;
+      arr.ws[i] = GetW(2 * step, invert, i);
     }
 
-    TransformParallel(X, W, step, num_threads);
+    // Reduce the number of theads used for the last steps.
+    while (n / (2 * step * num_threads) == 0) {
+      num_threads /= 2;
+    }
+
+    Parallelize(ComputeThread, arr, 1);
+    arr.update();
   }
 
+  // Epilogue.
   if (invert) {
     std::transform(std::execution::par_unseq, X.begin(), X.end(), X.begin(),
                    [=](cmplx x) -> cmplx { return x / double(n); });
   }
+  std::copy(std::execution::par_unseq, X.begin(), X.end(), X_orig.begin());
 }
 
-// -------------------- APPLICATION -------------------- //
-
-// Returns the shortened & transformed data.
-jarray Compress(const jarray& original, size_t new_size) {
-  jarray compressed(original);
-  FFTSeq(compressed, 0);
-  compressed.resize(new_size);
-  return compressed;
-}
-
-jarray Uncompress(const jarray& compressed, size_t original_size) {
-  jarray recovered(original_size, cmplx(0, 0));
-  for (size_t i = 0; i < compressed.size(); ++i) {
-    recovered[i] = compressed[i];
-  }
-  FFTSeq(recovered, 1);
-  return recovered;
-}
 }  // namespace FFT

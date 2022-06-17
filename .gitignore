@@ -1,4 +1,5 @@
 .vscode
 main
+test
 data/weatherHistory.csv
 *.o

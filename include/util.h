@@ -20,13 +20,12 @@ class Array {
 
   void update();
 
-  jarray X, next;
-  jarray twiddle, ws, wp;
-  dims N;
-  cmplx wln;
-  int n_bit, num_threads, n;
-  int Lj, Lprev, Nj;
   bool invert;
+  jarray X, next;
+  jarray twiddle, ws; // roots of unity
+  dims N;
+  int n_bit, num_threads, n, step;
+  int Lj, Lprev, Nj;
 };
 
 void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
@@ -37,7 +36,7 @@ void Parallelize2(std::function<void(Array&, int, int, int, int)> f, Array& arr,
 
 bool InitN(dims& N, size_t n, size_t num_threads);
 
-cmplx GetW(int N, bool invert);
+cmplx GetW(int N, bool invert, double k);
 
 int CeilBit(int n);
 
