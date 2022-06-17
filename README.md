@@ -30,7 +30,9 @@ Extras:
 
 The DFT of a sequence $x$ can be defined as
 $$X(k) = \sum_{n = 0}^{N-1} x(n) \omega_N^{kn}$$  
-with $\omega_N = e^{-i2 \pi / N}$ the root of unity. The inversion involves reapplying the DFT with $-\omega_N$ and possibly multiplication with a scalar ($1/N$).
+with $\omega_N = e^{-i2 \pi / N}$ the root of unity. 
+
+The inversion involves reapplying the DFT with $-\omega_N$ and possibly multiplication with a scalar ($1/N$).
 
 A very common FFT is the Cooley–Tukey radix-2 algorithm. The idea is to divide the sequence $x$ into two ($x_{\text{even}}$, $x_{\text{odd}}$), performs the DFT recursively on each, and construct the transformed sequence $X$ from $X_{\text{even}}$ and $X_{\text{odd}}$. The algorithm can be implemented iteratively for better performance.
 
