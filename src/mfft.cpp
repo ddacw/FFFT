@@ -137,7 +137,7 @@ void Transform(jarray& X_orig, bool invert, size_t num_threads) {
     Parallelize(DivN, arr, 1);
   }
 
-  std::copy(std::execution::par_unseq, X.begin(), X.end(), X_orig.begin());
+  X_orig = X;
 }
 
 }  // namespace MFFT

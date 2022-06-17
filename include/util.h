@@ -20,11 +20,12 @@ class Array {
 
   void update();
 
-  bool invert;
+  
   jarray X, next;
+  int num_threads, n_bit, n, step;
+  bool invert;
   jarray twiddle, ws; // roots of unity
   dims N;
-  int n_bit, num_threads, n, step;
   int Lj, Lprev, Nj;
 };
 

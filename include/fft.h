@@ -8,11 +8,11 @@
 
 namespace FFT {
 
-void DFT(jarray& X, bool invert);
+void DFT(jarray& X, bool invert, size_t);
 
-void FFTRec(jarray& X, bool invert);
+void FFTRec(jarray& X, bool invert, size_t);
 
-void FFTSeq(jarray& X, bool invert);
+void FFTSeq(jarray& X, bool invert, size_t);
 
 void FFTParallel(jarray& X, bool invert, size_t num_threads);
 

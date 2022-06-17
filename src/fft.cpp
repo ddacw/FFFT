@@ -3,7 +3,7 @@
 namespace FFT {
 
 // Peforms the DFT by defintion in O(N^2).
-void DFT(jarray& X, bool invert) {
+void DFT(jarray& X, bool invert, size_t) {
   int N = X.size();
   jarray next(N, 0.);
   for (int k = 0; k < N; ++k) {
@@ -20,7 +20,7 @@ void DFT(jarray& X, bool invert) {
 }
 
 // Implements the Radix-2 FFT algorihm.
-void FFTRecAux(jarray& X, bool invert) {
+void FFTRadix(jarray& X, bool invert) {
   int n = X.size();
   if (n == 1) {
     return;
@@ -30,8 +30,8 @@ void FFTRecAux(jarray& X, bool invert) {
     even[j] = X[i];
     odd[j] = X[i + 1];
   }
-  FFTRecAux(even, invert);
-  FFTRecAux(odd, invert);
+  FFTRadix(even, invert);
+  FFTRadix(odd, invert);
 
   cmplx wn = GetW(n, invert, 1);
   cmplx w(1.);
@@ -46,9 +46,9 @@ void FFTRecAux(jarray& X, bool invert) {
 }
 
 // Wrapper for the Radix-2 algorithm.
-void FFTRec(jarray& X, bool invert) {
+void FFTRec(jarray& X, bool invert, size_t) {
   PadZero(X);
-  FFTRecAux(X, invert);
+  FFTRadix(X, invert);
   if (invert) {
     for (size_t i = 0; i < X.size(); ++i) {
       X[i] /= X.size();
@@ -57,7 +57,7 @@ void FFTRec(jarray& X, bool invert) {
 }
 
 // Performs FFTRec without recursion.
-void FFTSeq(jarray& X, bool invert) {
+void FFTSeq(jarray& X, bool invert, size_t) {
   if (X.size() == 1) {
     return;
   }
@@ -125,7 +125,7 @@ void ComputeThread(Array& arr, int begin, int end, int inc) {
   int& step = arr.step;
   int start_even = begin;
   int start_odd = start_even + arr.step;
-  int step2_per_thread = (end - begin) / step;
+  int step2_per_thread = (end - begin) / (2 * step);
   jarray& X = arr.X;
   jarray& next = arr.next;
   jarray& W = arr.ws;
@@ -155,7 +155,6 @@ void FFTParallel(jarray& X_orig, bool invert, size_t num_threads) {
   int& step = arr.step;
   // Log(N) steps.
   for (step = 1; step < arr.n; step <<= 1) {
-    
     // Precomputed roots because it might be faster.
     arr.ws = jarray(step);
     for (int i = 0; i < step; ++i) {
@@ -163,10 +162,9 @@ void FFTParallel(jarray& X_orig, bool invert, size_t num_threads) {
     }
 
     // Reduce the number of theads used for the last steps.
-    while (n / (2 * step * num_threads) == 0) {
-      num_threads /= 2;
+    while (n / (2 * step * arr.num_threads) == 0) {
+      arr.num_threads /= 2;
     }
-
     Parallelize(ComputeThread, arr, 1);
     arr.update();
   }
@@ -176,7 +174,7 @@ void FFTParallel(jarray& X_orig, bool invert, size_t num_threads) {
     std::transform(std::execution::par_unseq, X.begin(), X.end(), X.begin(),
                    [=](cmplx x) -> cmplx { return x / double(n); });
   }
-  std::copy(std::execution::par_unseq, X.begin(), X.end(), X_orig.begin());
+  X_orig = X;
 }
 
 }  // namespace FFT

@@ -1,15 +1,15 @@
 #include "util.h"
 
-Array::Array(jarray X, int num_threads, bool invert, bool init_dim = false,
-             bool pad_zero = true)
+Array::Array(jarray X, int num_threads, bool invert, bool init_dim,
+             bool pad_zero)
     : X(X), num_threads(num_threads), invert(invert) {
   if (pad_zero) {
     n_bit = PadZero(this->X);
   }
   n = this->X.size();
-  twiddle = jarray(this->X.size());
+  twiddle = jarray(n);
   if (init_dim) {
-    if (!InitN(this->N, this->X.size(), num_threads)) {
+    if (!InitN(this->N, n, std::max(num_threads, 2))) {
       throw std::invalid_argument("Unable to factorize n by num_threads.");
     }
   }
@@ -23,6 +23,10 @@ void Array::update() {
 void Parallelize(std::function<void(Array&, int, int, int)> f, Array& arr,
                  int inc) {
   size_t num_threads = arr.num_threads;
+  if (num_threads == 1) {
+    f(arr, 0, arr.n, inc);
+    return;
+  }
   size_t block_size = (arr.n / inc) / num_threads;
   std::vector<std::thread> workers(num_threads - 1);
   size_t start_block = 0;
