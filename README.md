@@ -26,6 +26,8 @@ Extras:
 - `FFT::FFTRec`: recursive radix-2,
 - `FFT::FFTSeq`: iterative radix-2.
 
+Utilities are found in `util.h`.
+
 ## Description
 
 The DFT of a sequence $x$ can be defined as
@@ -43,9 +45,9 @@ A very common FFT is the Cooley–Tukey radix-2 algorithm. The idea is to divide
 
 ### MFFT (multi-dimensional)
 
-`MFFT::Transform` implements the parallelized FFT described in [(1)](<https://doi.org/10.1016/0167-8191(90)90031-4>) and [(2)](https://doi.org/10.1109/SUPERC.1994.344263). The 1-D sequence $x$ is mapped onto P dimensions $N = N_1 \times ... \times N_p$. To compute, for instance, the DFT of a 2D $N \times M$ array, we can compute $N$ DFTs along one dimension, then $M$ DFTs of the previous result along with the other. The array does not have to be padded to have a size of $2^k$, but each $N_i$ should (and in our case must) be divisible by the number of threads. It is possible in our code to, for instance, set `num_threads = 5` to process an array of size $5^k$ , but for simplicity, the default is to use a power of 2 with padding.
+`MFFT::Transform` implements the parallelized FFT described in [(1)](<https://doi.org/10.1016/0167-8191(90)90031-4>) and [(2)](https://doi.org/10.1109/SUPERC.1994.344263). The 1-D sequence $x$ is mapped onto $p$ dimensions $N = N_1 \times ... \times N_p$. To compute, for instance, the DFT of a 2D $N \times M$ array, we can compute $N$ DFTs along one dimension, then $M$ DFTs of the previous result along the other. The array does not have to be padded to have a size of $2^k$, but each $N_i$ should (and in our case must) be divisible by the number of threads. It is possible in our code to, for instance, set `num_threads = 5` to process an array of size $5^k$ , but for simplicity, the default is to use a power of 2 with padding.
 
-To compute the $i^{th}$-dimensional DFT, first the array $x$ has to be transposed so that the $i^{th}$ dimension is distributed along `x[]`. This is done by transposing $x$ after each DFT computation of slices of `x[]`. Twiddle factors are needed so that the result of the $i^{th}$-D DFT matches that of the ordinary DFT. For this, I implemented the $O(N^2)$ DFT to process segments of size $N_i$. Twiddle factors computation method was gradually improved during the project, but for now, I am not sure that this DFT can be replaced with the iterative 1D-FFT.
+To compute the $i^{th}$-dimensional DFT, first the array $x$ has to be transposed so that the $i^{th}$ dimension is distributed along `x[]`. This is done by transposing $x$ after each DFT computation of slices of `x[]`. Twiddle factors are needed so that the result of the $P$-D DFT matches that of the ordinary 1D DFT. For this, I implemented the $O(N^2)$ DFT to process segments of size $N_i$. Twiddle factors computation method was gradually improved during the project, but for now, I am not sure that this DFT can be replaced with the iterative 1D-FFT.
 
 This function is the main focus of the project. While the final implementation is straightforward, several elements were hard to get right. To start with, I did not refer to the source code (if there is any) of both papers. Since the paper described the algorithm adapted to the architecture of the time, our version does not closely follow the description and is streamlined with `std::thread`. Nevertheless, mathematical operations (twiddle factors, transposing, etc.) are computed as described in both papers. I personally enjoyed writing the formula for calculating the indices of the transposition.
 
@@ -77,7 +79,7 @@ FFT algorithms in $O(N \log N)$ are fast and will process an array of size $10^6
 
 Evidently, the iterative FFT is faster than the recursive one (and is easier to parallelize). `FFT::FFTParallel` is also faster with more threads (until 16). For instance, the runtime is reduced by half using 4 threads on large tests compared to the single-threaded one.
 
-`MFFT::Transform` is slower than `FFT::FFTParallel` most of the time, partly because my implementation is sensitive to `num_threads` (each DFT runs at approximately $O(num thread)$). It is also more complex implementation-wise and is not exactly optimized to compete with `FFT::FFTParallel` (extremely slow with 1 thread). Still, the improved runtime when more threads (especially 8) are used is promising.
+`MFFT::Transform` is slower than `FFT::FFTParallel` most of the time, partly because my implementation is sensitive to `num_threads` (each DFT runs at approximately `O(num_thread)`. It is also more complex implementation-wise and is not exactly optimized to compete with `FFT::FFTParallel` (MFFT is extremely slow with 1 thread). Still, the improved runtime when more threads (especially 8) are used is promising.
 
 `FFT::FFTRec`:
 |Size | 5,000|10,000|50,000|100,000|500,000|1e6|1e7|5e7|
