@@ -1,8 +1,8 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
-#include <random>
 #include <iomanip>
+#include <random>
 
 static std::uniform_int_distribution<> uniform(-1, RAND_MAX);
 
@@ -76,12 +76,15 @@ int Benchmark(func_fft fft, int N, size_t num_threads) {
   return elapsed;
 }
 
-const int Ns[8] = {5000, 10000, 50000, 100000, 500000, 1000000, 10000000, 50000000};
+const int Ns[8] = {5000,   10000,   50000,    100000,
+                   500000, 1000000, 10000000, 50000000};
 
-void TestExecutionTime(func_fft fft, std::string fft_name, size_t max_num_threads) {
+void TestExecutionTime(func_fft fft, std::string fft_name,
+                       size_t max_num_threads) {
   std::cerr.imbue(std::locale(""));
   std::cerr << "\nBenchmark " << fft_name << ":" << std::endl;
-  for (size_t num_threads = 1; num_threads <= max_num_threads; num_threads <<= 1) {
+  for (size_t num_threads = 1; num_threads <= max_num_threads;
+       num_threads <<= 1) {
     std::cerr << std::setw(2) << num_threads << " thread(s): ";
     for (int N : Ns) {
       int elapsed = Benchmark(fft, N, num_threads);
@@ -103,6 +106,8 @@ int main(int argc, char* argv[]) {
   TestExecutionTime(FFT::FFTSeq, "FFT::FFTSeq", 1);
   TestExecutionTime(FFT::FFTParallel, "FFT::FFTParallel", 32);
   TestExecutionTime(MFFT::Transform, "MFFT::Transform", 32);
+
+  // // Optional: test with the weather dataset.
   // std::ifstream infile;
   // infile.open("data/temp.txt");
   // jarray X_orig;
@@ -110,31 +115,4 @@ int main(int argc, char* argv[]) {
   // while (infile >> x) {
   //   X_orig.push_back(x);
   // }
-
-  // std::ofstream rec;
-  // jarray X(X_orig);
-
-  // rec.open("fft_cpp_rec.txt");
-  // FFT::FFTRec(X);
-  // for (size_t i = 0; i < X.size(); ++i) {
-  //   rec << X[i] << std::endl;
-  // }
-  // rec.close();
-
-  // X = X_orig;
-  // rec.open("fft_cpp_seq.txt");
-  // FFT::FFTSeq(X, 0);
-  // for (size_t i = 0; i < X.size(); ++i) {
-  //   rec << X[i] << std::endl;
-  // }
-  // rec.close();
-
-  // size_t num_threads = 8;
-  // X = X_orig;
-  // rec.open("fft_cpp_par.txt");
-  // FFT::FFTParallel(X, false, num_threads);
-  // for (size_t i = 0; i < X.size(); ++i) {
-  //   rec << X[i] << std::endl;
-  // }
-  // rec.close();
 }
